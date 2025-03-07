@@ -194,31 +194,40 @@ namespace FlowShapesSolver
             this.name = name;
             c = 0;
         }
-        public void Solve()
+        public bool Solve()
         {
+            if (Cells.Count == 0)
+                return false;
+
             // Solve the puzzle.
-            List<Color> seenC = new();
+            Dictionary<Color, int> seenC = new();
             foreach (Cell cell in Cells)
             {
-                if (cell.Color != Color.Black && !seenC.Contains(cell.Color))
+                if (cell.Color != Color.Black && !seenC.ContainsKey(cell.Color))
                 {
-                    seenC.Add(cell.Color);
+                    seenC.Add(cell.Color, 1);
                     cell.isRecievingCellDot = false;
                 }
-                else if (seenC.Contains(cell.Color))
+                else if (seenC.ContainsKey(cell.Color))
                 {
+                    seenC[cell.Color]++;
                     cell.isRecievingCellDot = true;
+
+                    if (seenC[cell.Color] > 2)
+                        return false;
                 }
             }
 
             bool res = recurse(0);
-            Console.WriteLine("Solving " + name + " was " + (res ? "success" : "fail"));
+            // Console.WriteLine("Solving " + name + " was " + (res ? "success" : "fail"));
+            return res;
         }
 
         public bool recurse(int target)
         {
-            // DrawPuzzle();
+            // SavePuzzle();
 
+            // End condition
             if (target == Cells.Count)
             {
                 foreach (Cell cell in Cells)
@@ -236,13 +245,14 @@ namespace FlowShapesSolver
                 if (recurse(target + 1))
                     return true;
             }
+
             foreach (Cell n in targetCell.Neighbors)
             {
                 if (TailBack(targetCell, n))
                     continue;
                 if (targetCell.tryConnect(n))
                 {
-                    if (TailHasEscape(targetCell) && HeadHasEscape(n))
+                    if (TailHasEscape(targetCell) && HeadHasEscape(n) && !Tail(targetCell, n))
                     {
                         if (recurse(target + 1))
                             return true;
@@ -253,8 +263,7 @@ namespace FlowShapesSolver
             return false;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TailBack(Cell current, Cell next)
+        public static bool TailBack(Cell current, Cell next)
         {
             List<Cell> tail = new();
             tail.Add(current);
@@ -267,6 +276,34 @@ namespace FlowShapesSolver
                 if (n2 != current && tail.Contains(n2))
                 {
                     return true;
+                }
+            }
+            return false;
+        }
+        public static bool Tail(Cell current, Cell next)
+        {
+            List<Cell> tailFront = new();
+            List<Cell> tailBack = new();
+            tailFront.Add(next);
+            while (tailFront.Last().ConnectedCell != null)
+            {
+                tailFront.Add(tailFront.Last().ConnectedCell);
+            }
+            tailBack.Add(current);
+            while (tailBack.Last().PrevConnectedCell != null)
+            {
+                tailBack.Add(tailBack.Last().PrevConnectedCell);
+            }
+            foreach (Cell n1 in tailFront)
+            {
+                if (n1 == next)
+                    continue;
+                foreach (Cell n2 in tailBack)
+                {
+                    if (n1.Neighbors.Contains(n2))
+                    {
+                        return true;
+                    }
                 }
             }
             return false;
@@ -287,13 +324,19 @@ namespace FlowShapesSolver
             }
             return (cell.HasIncome());
         }
-
-        public void DrawPuzzle(Bitmap? underlay = null)
+        public void SavePuzzle(Bitmap? underlay = null)
         {
             if (c > 500)
                 return;
             c++;
+            Bitmap bitmap = DrawPuzzle(underlay);
+            // Save the image to a file.
+            bitmap.Save(name + "/" + c + ".png");
+            bitmap.Dispose();
+        }
 
+        public Bitmap DrawPuzzle(Bitmap? underlay = null)
+        {
             Graphics g;
             Bitmap bitmap;
 
@@ -341,11 +384,8 @@ namespace FlowShapesSolver
                 // Draw a circle for the cell.
                 DrawCircle(g, cell.Color, cell.isCellDot ? (int)(70 * scale + 1) : (int)(30 * scale + 1), cell.Position.x, cell.Position.y);
             }
-
-            // Save the image to a file.
-            bitmap.Save(name + "/" + c + ".png");
-            bitmap.Dispose();
             g.Dispose();
+            return bitmap;
         }
 
         public static void DrawCircle(Graphics g, Color color, int size, int x, int y)

@@ -40,8 +40,11 @@ namespace FlowShapesSolver
 
             // 3. Threshold or Canny edge detection to highlight cell borders
             Mat edgeMat = new();
-            grayMat.Save(name + "/Gray.png");
-            mask.Save(name + "/mask.png");
+            if (name != "")
+            {
+                grayMat.Save(name + "/Gray.png");
+                mask.Save(name + "/mask.png");
+            }
 
             // 4. Find contours
             VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint();
@@ -177,8 +180,18 @@ namespace FlowShapesSolver
                 cells.Remove(cell);
 
             // Finally, save the result as PNG
-            string outputPath = name + "/contours_output.png";
-            CvInvoke.Imwrite(outputPath, debugContourImage);
+            if (name != "")
+            {
+                string outputPath = name + "/contours_output.png";
+                CvInvoke.Imwrite(outputPath, debugContourImage);
+            }
+
+            // Dispose of the images
+            colorMat.Dispose();
+            grayMat.Dispose();
+            mask.Dispose();
+            edgeMat.Dispose();
+            debugContourImage.Dispose();
 
             return cells;
         }

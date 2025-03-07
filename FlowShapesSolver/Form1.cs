@@ -10,6 +10,10 @@ namespace FlowShapesSolver
         {
             InitializeComponent();
             RunTests();
+
+            // Create a thread to run the puzzle solver
+            Thread t = new(() => BackgroundWorkerSolver());
+            t.Start();
         }
         private void RunTests()
         {
@@ -28,9 +32,9 @@ namespace FlowShapesSolver
             Test("tests/original8.png");
 
             // These tests are too slow to run on the CI
-            // Test("tests/original7.png");
-            // Test("tests/original2.png");
-            // Test("tests/3.jpg");
+            Test("tests/original7.png");
+            Test("tests/original2.png");
+            Test("tests/3.jpg");
         }
 
         private void Test(string s)
@@ -43,6 +47,7 @@ namespace FlowShapesSolver
                 return;
             }
             SolvePuzzle(name, baseImage);
+            baseImage.Dispose();
         }
         private void SolvePuzzle(string name, Bitmap img)
         {
@@ -51,18 +56,19 @@ namespace FlowShapesSolver
 
             puzzle.Cells = CellDetector.DetectCells(img, name);
             puzzle.size = img.Size;
-            puzzle.DrawPuzzle();
+            puzzle.SavePuzzle();
 
             Stopwatch profiler = new();
             profiler.Start();
 
-            puzzle.Solve();
+            bool res = puzzle.Solve();
+            Console.WriteLine("Solving " + name + " was " + (res ? "success" : "fail"));
 
             profiler.Stop();
             double elapsedMicroseconds = (double)profiler.ElapsedTicks / Stopwatch.Frequency * 1_000_000;
             Console.WriteLine($"Solve Time: {elapsedMicroseconds:F3} µs");
 
-            puzzle.DrawPuzzle(img);
+            puzzle.SavePuzzle(img);
         }
         private void PlayPuzzle()
         {
@@ -73,11 +79,58 @@ namespace FlowShapesSolver
             Puzzle puzzle = new Puzzle("Screen");
             puzzle.Cells = CellDetector.DetectCells(s, "Screen");
             puzzle.size = s.Size;
-            puzzle.DrawPuzzle();
+            puzzle.SavePuzzle();
             puzzle.Solve();
-            puzzle.DrawPuzzle(s);
+            puzzle.SavePuzzle(s);
             Player p = new();
             p.Play(puzzle, topLeft);
+            s.Dispose();
+        }
+
+        private void BackgroundWorkerSolver()
+        {
+            while (true)
+            {
+                Thread.Sleep(100);
+
+                Vector2 topLeft = new(1286, 140);
+                Bitmap s = ScreenReader.TakeScreenshotRegion(topLeft, new Vector2(1875, 922));
+                if (s == null)
+                    continue;
+                Puzzle puzzle = new Puzzle("");
+                puzzle.Cells = CellDetector.DetectCells(s, "");
+                puzzle.size = s.Size;
+                bool res;
+                try
+                {
+                    res = puzzle.Solve();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                    continue;
+                }
+                if (res)
+                {
+                    // Run on main UI thread
+                    Invoke(new Action(() =>
+                    {
+                        pictureBox1.Image = s.Clone() as Image;
+                        pictureBox2.Image = puzzle.DrawPuzzle(s.Clone() as Bitmap);
+                        pictureBox2.Visible = true;
+                    }));
+                }
+                else
+                {
+                    // Run on main UI thread
+                    Invoke(new Action(() =>
+                    {
+                        pictureBox1.Image = s.Clone() as Image;
+                        pictureBox2.Visible = false;
+                    }));
+                }
+                s.Dispose();
+            }
         }
 
         private void SolveButton_Click(object sender, EventArgs e)

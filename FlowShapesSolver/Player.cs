@@ -12,7 +12,7 @@ namespace FlowShapesSolver
         }
         public void Play(Puzzle puzzle, Vector2 topLeft)
         {
-            int delayms = 100;
+            int delayms = 30;
             foreach (Cell cell in puzzle.Cells)
             {
                 if (cell.isCellDot && !cell.isRecievingCellDot)
@@ -29,6 +29,7 @@ namespace FlowShapesSolver
                         MoveCursor((int)(n.Position.x + topLeft.X), (int)(n.Position.y + topLeft.Y));
                     }
                     ClickUp();
+                    Thread.Sleep(delayms);
                 }
             }
         }
